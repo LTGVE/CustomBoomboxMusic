@@ -1,7 +1,11 @@
 using Cysharp.Threading.Tasks;
 using Newtonsoft.Json;
+using System;
 using System.IO;
 using System.Linq;
+using System.Net.Http.Headers;
+using System.Net.Mime;
+using System.Text.RegularExpressions;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -297,7 +301,7 @@ namespace CustomBoomboxMusic
             if (result != null && result.result == UnityWebRequest.Result.Success)
             {
                 var bytes = result.downloadHandler.data;
-                var path = songFolder+"/"+fullName+".mp3";
+                var path = (songFolder + "/" + fullName.Replace("%", "_").Replace(":", "_").Replace("?", "_").Replace("=", "_").Replace("&", "_").Replace("#", "_").Replace("~", "_").Replace("*", "_").Replace("<", "_").Replace(">", "_").Replace("|", "_")+ ".mp3");
                 File.WriteAllBytes(path, bytes);
                 FileInfo fileInfo = new FileInfo(path);
                 CustomBoomboxMusic.Logger.LogDebug($"Downloaded Song! : {fullName} Size : {fileInfo.Length / 1024}KB");
@@ -337,12 +341,13 @@ namespace CustomBoomboxMusic
             {
                 Directory.CreateDirectory(songFolder);
             }
-            var fullName = url.Split('/').Last();
+            
+            var fullName = GetFileName(www.GetResponseHeader("Content-Disposition"));
 
             if (result != null && result.result == UnityWebRequest.Result.Success)
             {
                 var bytes = result.downloadHandler.data;
-                var path = songFolder + "/"+fullName+ (fullName.EndsWith(".mp3")||fullName.EndsWith(".wav") ? "" : ".mp3");
+                var path = (songFolder + "/"+fullName.Replace("%", "_").Replace(":", "_").Replace("?", "_").Replace("=", "_").Replace("&", "_").Replace("#", "_").Replace("~", "_").Replace("*", "_").Replace("<", "_").Replace(">", "_").Replace("|", "_") + (fullName.EndsWith(".mp3")||fullName.EndsWith(".wav") ? "" : ".mp3"));
                 File.WriteAllBytes(path, bytes);
                 FileInfo fileInfo = new FileInfo(path);
                 CustomBoomboxMusic.Logger.LogDebug($"Downloaded Song! : {fullName} Size : {fileInfo.Length / 1024}KB");
@@ -378,6 +383,21 @@ namespace CustomBoomboxMusic
                     boomboxObject.GetComponent<AudioLowPassFilter>().enabled = !bypass;
 
                 }
+        }
+        private static string GetFileName(string contentDisposition) {
+            if (string.IsNullOrEmpty(contentDisposition))
+               return DateTime.Now.ToString("yyyyMMddHHmmssfff") + ".mp3";
+            Match match = Regex.Match(contentDisposition, @"filename\*=UTF-8''([^;]+)");
+            if (match.Success)
+            {
+                string encoded = match.Groups[1].Value;
+                return Uri.UnescapeDataString(encoded);  
+            }
+
+            match = Regex.Match(contentDisposition, @"filename=""?([^"";]+)""?");
+            if (match.Success)
+                return match.Groups[1].Value;
+            return DateTime.Now.ToString("yyyyMMddHHmmssfff") + ".mp3";
         }
     }
 }
